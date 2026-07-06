@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+.yolo-env/
+yolo-env/
+
+# YOLO outputs
+runs/
+
+# Datasets
+dataset/
+datasets/
+
+# Model weights
+*.pt
+*.onnx
+*.engine
+
+# Images
+*.jpg
+*.jpeg
+*.png
+*.bmp
+
+# Logs
+*.log
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.tar
+
+# Environment variables
+.env
