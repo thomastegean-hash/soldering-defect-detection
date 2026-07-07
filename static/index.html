@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="icon" type="image/x-icon" href="icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>site v101</title>
+<style>
+:root {
+    --bg: #10141c;
+    --bg-grid: #171d28;
+    --panel: #161b25;
+    --line: #2a3242;
+    --text: #dfe4ee;
+    --muted: #7d8aa3;
+    --accent: #ff3b3b;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 40px 20px;
+    background:
+        linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 28px 28px,
+        linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 28px 28px,
+        var(--bg);
+    font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    color: var(--text);
+}
+
+/* page title + hint, added purely with generated content so no body markup is touched */
+body::before {
+    
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 20px;
+
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: var(--muted);
+}
+.wrapper {
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.title {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+
+.image-container {
+    position: relative;
+    display: inline-block; /* Makes the container fit the image */
+	left:20px;
+    width: fit-content;
+    overflow: visible;
+    backface-visibility: hidden;
+}
+
+.image-container img {
+    display: block;
+    
+	
+    border-radius: 2px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+}
+
+.overlay {
+    position: absolute;
+    top: 20px;
+    left: 30px;
+
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 10px;
+    border-radius: 3px;
+    backdrop-filter: blur(2px);
+}
+.square {
+  background-color: transparent;
+  position:absolute;
+  border: 5px solid red;
+  left: 49.75%;
+  top: 30.4685%;
+  width: 8.5%;
+  height: 8.3%;
+  
+  border-radius: 2px;
+  border-color: var(--accent);
+  box-shadow:
+      0 0 0 1px rgba(255,59,59,0.35),
+      0 0 18px 2px rgba(255,59,59,0.55);
+  animation: marker-pulse 1.8s ease-in-out infinite;
+}
+
+/* small corner ticks to read as a targeting reticle rather than a bare rectangle */
+.square::before,
+.square::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--accent);
+}
+.square::before { top: -9px; left: -9px; border-right: none; border-bottom: none; }
+.square::after   { bottom: -9px; right: -9px; border-left: none; border-top: none; }
+
+@keyframes marker-pulse {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255,59,59,0.35), 0 0 18px 2px rgba(255,59,59,0.55); }
+    50%      { box-shadow: 0 0 0 1px rgba(255,59,59,0.55), 0 0 26px 6px rgba(255,59,59,0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .square { animation: none; }
+}
+
+/* layout + input styling, none of it changes ids/classes used by java.js */
+.panel {
+    display: flex;
+    flex-direction: column;
+
+    width: fit-content;
+    margin: 0;
+    gap: 18px;
+    padding: 40px;
+
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+body {
+    overflow: auto;
+}
+
+/* the container itself must stay overflow:visible (set above) so the
+   scaled content isn't clipped by its own box; the scroll now happens
+   on body/html instead */
+
+.zoom-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    background: rgba(22, 27, 37, 0.92);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 30px -10px rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+}
+
+.zoom-controls button {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    width: 34px;
+    height: 30px;
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.zoom-controls button[data-zoom="reset"] {
+    width: auto;
+    padding: 0 10px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.zoom-controls button:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+/* neutralizes the inline left:20px offset on .image-container purely via the
+   cascade (later same-specificity rule wins) so the image sits centered
+   under the input instead of drifting right */
+.image-container {
+    left: 0;
+}
+
+input#imageInput {
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+input#imageInput::file-selector-button {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+input#imageInput::file-selector-button:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+img#mainImage {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+img#mainImage:not([hidden]) {
+    opacity: 1;
+}
+
+/* Clipping frame injected by JS around .image-container once image loads.
+   It takes the exact pixel size of the rendered image, clips anything that
+   overflows during zoom/pan, and is itself overflow:hidden. The container
+   (.image-container) keeps overflow:visible so the square's glow/corners
+   aren't clipped by the container — they ARE clipped by the frame, which
+   is the intended behaviour. */
+.zoom-frame {
+    overflow: hidden;
+    display: inline-block;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+    box-shadow: 0 0 0 1px rgba(255,59,59,0.08), 0 30px 60px -20px rgba(0,0,0,0.6);
+    contain: layout paint;
+    /* the JS will set width and height inline */
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="title">SITE V101</div>
+
+    <div class="panel">
+        <input type="file" id="imageInput" accept="image/*">
+
+        <div class="image-container">
+            <img id="mainImage" hidden>
+            <div class="square" hidden></div>
+        </div>
+    </div>
+</div>
+<script src="java.js"></script>
+</body>
+</html> 
+
+
+<!--partea de culoare va fi asa: verde= (var-0.5)*2*255; red= (1-var)*2*255; daca var>0.5=>verde=255; var<0.5==>red=255
+coord=50, 100,200,250*/
+/*54+-8.5/2   34+-8.3-->
