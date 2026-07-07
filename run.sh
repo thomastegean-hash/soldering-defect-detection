@@ -8,4 +8,5 @@ docker run --rm -it \
   --ipc=host \
   --security-opt seccomp=unconfined \
   -v "$(pwd):/app" \
+  -v "$HOME/data:/data" \
   yolo-app

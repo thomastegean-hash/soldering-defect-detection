@@ -16,7 +16,6 @@ dataset/
 datasets/
 
 # Model weights
-*.pt
 *.onnx
 *.engine
 
