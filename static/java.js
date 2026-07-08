@@ -372,6 +372,8 @@ input.addEventListener("change", () => {
             frame.appendChild(container);
 
             if (zoomApi) zoomApi.attachWheelTarget(frame);
+        } // closes buildFrame()
+
         if (!img.hidden && img.complete && img.naturalWidth) {
             buildFrame();
         } else {
