@@ -63,9 +63,13 @@ function _updateInfoBar() {
         return;
     }
     bar.classList.add('has-detections');
-    bar.innerHTML = dets.map(function (d) {
+
+    const viewBadge = window.lastView
+        ? '<span class="det-view-badge">' + window.lastView + '</span>'
+        : '';
+
+    const chips = dets.map(function (d) {
         const conf = Math.round(d.confidence * 100);
-        // Colour: green at 100 %, red at 0 %
         const g = conf >= 50 ? 255 : Math.round((conf / 50) * 255);
         const r = conf <= 50 ? 255 : Math.round(((100 - conf) / 50) * 255);
         const color = 'rgb(' + r + ',' + g + ',0)';
@@ -74,6 +78,40 @@ function _updateInfoBar() {
              + '<em>' + conf + '%</em>'
              + '</span>';
     }).join('');
+
+    bar.innerHTML = viewBadge + chips;
+}
+
+/* ─── Backend fetch ─────────────────────────────────────────────────────── */
+async function _fetchDetections(file) {
+    const bar = document.getElementById('detections-bar');
+
+    // Show loading state
+    bar.classList.remove('has-detections');
+    bar.textContent = 'Detecting…';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch('/detect', { method: 'POST', body: formData });
+
+        if (!res.ok) {
+            bar.textContent = 'Error ' + res.status + ': ' + res.statusText;
+            return;
+        }
+
+        const data = await res.json();
+        // data = { view: "top"|"perspective", detections: [{class, confidence, bbox}] }
+
+        window.lastView = data.view;
+        window.renderDetections(data.detections);
+
+    } catch (err) {
+        bar.classList.remove('has-detections');
+        bar.textContent = 'Network error: ' + err.message;
+        console.error('[detect]', err);
+    }
 }
 
 /* ─── File input ────────────────────────────────────────────────────────── */
@@ -81,19 +119,14 @@ input.addEventListener("change", () => {
     const file = input.files[0];
     if (!file) return;
 
-    // Clear old boxes and info while loading
+    // Clear old boxes and info while the new image loads
     container.querySelectorAll('.square').forEach(el => el.remove());
     window.lastDetections = [];
     _updateInfoBar();
 
     image.onload = () => {
-        /* No boxes are shown until renderDetections() is called by the
-           backend integration. Remove this comment and call it here if
-           you want to test with dummy data, e.g.:
-             window.renderDetections([
-               { class: "valve", confidence: 0.91, bbox: [120, 80, 210, 160] }
-             ]);
-        */
+        // Image is displayed — now ask the backend
+        _fetchDetections(file);
     };
 
     image.src = URL.createObjectURL(file);
@@ -339,8 +372,6 @@ input.addEventListener("change", () => {
             frame.appendChild(container);
 
             if (zoomApi) zoomApi.attachWheelTarget(frame);
-        }
-
         if (!img.hidden && img.complete && img.naturalWidth) {
             buildFrame();
         } else {
@@ -367,6 +398,7 @@ input.addEventListener("change", () => {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { initZoom(); initFrame(); });
     } else {
+
         initZoom();
         initFrame();
     }
