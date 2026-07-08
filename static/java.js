@@ -1,13 +1,99 @@
 const input = document.getElementById("imageInput");
 const image = document.getElementById("mainImage");
-const square = document.querySelector(".square");
+const container = document.querySelector(".image-container");
 
+/* ─── Public API ────────────────────────────────────────────────────────────
+   window.lastDetections  – array of the last rendered detections, each:
+     { class: string, confidence: number, bbox: [x1,y1,x2,y2] }
+
+   window.renderDetections(detections, imgNaturalWidth, imgNaturalHeight)
+     Call this with the array returned by detector.py once you have it.
+     bbox coords must be absolute pixels in the original image space.
+   ──────────────────────────────────────────────────────────────────────── */
+
+window.lastDetections = [];
+
+window.renderDetections = function (detections, natW, natH) {
+    // Use the image's own natural dimensions as fallback
+    const srcW = natW ?? image.naturalWidth;
+    const srcH = natH ?? image.naturalHeight;
+
+    // Remove all previous boxes
+    container.querySelectorAll('.square').forEach(el => el.remove());
+
+    window.lastDetections = detections || [];
+
+    detections.forEach(function (det) {
+        const [x1, y1, x2, y2] = det.bbox;
+
+        // Convert absolute px → % relative to the original image size
+        const leftPct   = (x1 / srcW) * 100;
+        const topPct    = (y1 / srcH) * 100;
+        const widthPct  = ((x2 - x1) / srcW) * 100;
+        const heightPct = ((y2 - y1) / srcH) * 100;
+
+        const box = document.createElement('div');
+        box.className = 'square';
+        box.style.left   = leftPct   + '%';
+        box.style.top    = topPct    + '%';
+        box.style.width  = widthPct  + '%';
+        box.style.height = heightPct + '%';
+
+        // Label: "ClassName 94%"
+        const label = document.createElement('span');
+        label.className = 'square-label';
+        label.textContent = det.class + ' ' + Math.round(det.confidence * 100) + '%';
+        box.appendChild(label);
+
+        container.appendChild(box);
+    });
+
+    // Update the info bar
+    _updateInfoBar();
+};
+
+/* ─── Info bar ──────────────────────────────────────────────────────────── */
+function _updateInfoBar() {
+    const bar = document.getElementById('detections-bar');
+    if (!bar) return;
+    const dets = window.lastDetections;
+    if (!dets.length) {
+        bar.textContent = 'No detections';
+        bar.classList.remove('has-detections');
+        return;
+    }
+    bar.classList.add('has-detections');
+    bar.innerHTML = dets.map(function (d) {
+        const conf = Math.round(d.confidence * 100);
+        // Colour: green at 100 %, red at 0 %
+        const g = conf >= 50 ? 255 : Math.round((conf / 50) * 255);
+        const r = conf <= 50 ? 255 : Math.round(((100 - conf) / 50) * 255);
+        const color = 'rgb(' + r + ',' + g + ',0)';
+        return '<span class="det-chip" style="--chip-color:' + color + '">'
+             + '<b>' + d.class + '</b>'
+             + '<em>' + conf + '%</em>'
+             + '</span>';
+    }).join('');
+}
+
+/* ─── File input ────────────────────────────────────────────────────────── */
 input.addEventListener("change", () => {
     const file = input.files[0];
     if (!file) return;
 
+    // Clear old boxes and info while loading
+    container.querySelectorAll('.square').forEach(el => el.remove());
+    window.lastDetections = [];
+    _updateInfoBar();
+
     image.onload = () => {
-        square.hidden = false; // Show square only after image is loaded
+        /* No boxes are shown until renderDetections() is called by the
+           backend integration. Remove this comment and call it here if
+           you want to test with dummy data, e.g.:
+             window.renderDetections([
+               { class: "valve", confidence: 0.91, bbox: [120, 80, 210, 160] }
+             ]);
+        */
     };
 
     image.src = URL.createObjectURL(file);
