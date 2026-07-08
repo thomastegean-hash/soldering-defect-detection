@@ -41,3 +41,9 @@ Thumbs.db
 
 # Environment variables
 .env
+
+#other
+models/**
+!models/deploy/
+!models/deploy/*.pt
+yolo*.pt
