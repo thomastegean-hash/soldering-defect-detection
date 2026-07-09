@@ -60,6 +60,40 @@ body {
     overflow: visible;
 }
 
+
+/* Human-readable detection message */
+.det-message {
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 20px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(125,138,163,0.08);
+    background: rgba(255,255,255,0.02);
+    max-width: 720px;
+    white-space: normal;
+}
+
+/* States */
+.det-message.ok {
+    color: #9be89b;
+    border-color: rgba(155,232,155,0.12);
+    background: rgba(155,232,155,0.03);
+}
+
+.det-message.warn {
+    color: #ffd36b;
+    border-color: rgba(255,211,107,0.12);
+    background: rgba(255,211,107,0.03);
+}
+
+.det-message.error {
+    color: #ff9b9b;
+    border-color: rgba(255,155,155,0.12);
+    background: rgba(255,155,155,0.03);
+}
+
 .image-container img {
     display: block;
     border-radius: 2px;

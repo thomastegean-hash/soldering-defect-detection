@@ -13,6 +13,8 @@ const container = document.querySelector(".image-container");
 
 window.lastDetections = [];
 
+window.lastDetections = [];
+
 window.renderDetections = function (detections, natW, natH) {
     // Use the image's own natural dimensions as fallback
     const srcW = natW ?? image.naturalWidth;
@@ -23,7 +25,7 @@ window.renderDetections = function (detections, natW, natH) {
 
     window.lastDetections = detections || [];
 
-    detections.forEach(function (det) {
+    (detections || []).forEach(function (det) {
         const [x1, y1, x2, y2] = det.bbox;
 
         // Convert absolute px → % relative to the original image size
@@ -39,10 +41,20 @@ window.renderDetections = function (detections, natW, natH) {
         box.style.width  = widthPct  + '%';
         box.style.height = heightPct + '%';
 
+        // Color calculation for box border/glow based on confidence
+        // formula from your comment:
+        // if conf > 0.5 => green = 255; else green = (conf - 0.5)*2*255 (clamped)
+        // if conf < 0.5 => red = 255; else red = (1-conf)*2*255 (clamped)
+        const conf = Number(det.confidence ?? 0);
+        const r = conf <= 0.5 ? 255 : Math.round((1 - conf) * 2 * 255);
+        const g = conf >= 0.5 ? 255 : Math.round(conf * 2 * 255);
+        const color = `rgb(${r},${g},0)`;
+        box.style.setProperty('--box-color', color);
+
         // Label: "ClassName 94%"
         const label = document.createElement('span');
         label.className = 'square-label';
-        label.textContent = det.class + ' ' + Math.round(det.confidence * 100) + '%';
+        label.textContent = det.class + ' ' + Math.round(conf * 100) + '%';
         box.appendChild(label);
 
         container.appendChild(box);
@@ -50,7 +62,97 @@ window.renderDetections = function (detections, natW, natH) {
 
     // Update the info bar
     _updateInfoBar();
+
+    // Update the human-readable message below the bar
+    updateDetectionMessage(detections);
 };
+
+
+// Map class strings to human messages and severity
+const DETECTION_MESSAGE_MAP = {
+  "good":        { text: "No problem detected.", severity: "ok" },
+  "no_good":     { text: "Generic failure detected (top view).", severity: "error" },
+  "exc_solder":  { text: "Excessive solder detected.", severity: "error" },
+  "poor_solder": { text: "Poor soldering detected.", severity: "warn" },
+  "spike":       { text: "Spike detected.", severity: "warn" }
+};
+
+// Priority order for message selection (higher index = higher priority)
+const MESSAGE_PRIORITY = ["good", "no_good", "exc_solder", "poor_solder", "spike"];
+
+/**
+ * Choose the most relevant message from detections.
+ * - detections: array of { class: string, confidence: number, bbox: [...] }
+ * Returns { text, severity, reasonClass, confidence } or null if no detections.
+ */
+function chooseDetectionMessage(detections) {
+  if (!Array.isArray(detections) || detections.length === 0) return null;
+
+  // Build a map of best confidence per class
+  const bestByClass = {};
+  detections.forEach(det => {
+    const cls = String(det.class || det.label || "").trim();
+    const conf = Number(det.confidence ?? det.score ?? 0);
+    if (!cls) return;
+    if (!bestByClass[cls] || conf > bestByClass[cls].confidence) {
+      bestByClass[cls] = { class: cls, confidence: conf };
+    }
+  });
+
+  // Walk priority list and pick first class present (highest priority wins)
+  for (let i = MESSAGE_PRIORITY.length - 1; i >= 0; i--) {
+    const cls = MESSAGE_PRIORITY[i];
+    if (bestByClass[cls]) {
+      const map = DETECTION_MESSAGE_MAP[cls] || { text: cls, severity: "warn" };
+      return {
+        text: map.text,
+        severity: map.severity,
+        reasonClass: cls,
+        confidence: bestByClass[cls].confidence
+      };
+    }
+  }
+
+  // Fallback: pick highest-confidence detection
+  const highest = Object.values(bestByClass).sort((a,b) => b.confidence - a.confidence)[0];
+  if (highest) {
+    const map = DETECTION_MESSAGE_MAP[highest.class] || { text: highest.class, severity: "warn" };
+    return { text: map.text, severity: map.severity, reasonClass: highest.class, confidence: highest.confidence };
+  }
+
+  return null;
+}
+
+/**
+ * Update the message area under the detections bar.
+ * Call this from renderDetections(detections) after drawing boxes.
+ */
+function updateDetectionMessage(detections) {
+  const el = document.getElementById("detection-message");
+  if (!el) return;
+
+  const chosen = chooseDetectionMessage(detections);
+  // Clear previous classes
+  el.classList.remove("ok", "warn", "error");
+
+  if (!chosen) {
+    el.textContent = "";
+    return;
+  }
+
+  // Format confidence as percentage with no decimals
+  const confPct = (typeof chosen.confidence === "number")
+    ? `${Math.round(chosen.confidence * 100)}%`
+    : "";
+
+  // Compose message: main text + optional reason/confidence
+  const reason = chosen.reasonClass ? ` (${chosen.reasonClass}${confPct ? ` · ${confPct}` : ""})` : (confPct ? ` (${confPct})` : "");
+  el.textContent = `${chosen.text}${reason}`;
+
+  // Apply severity class for color
+  el.classList.add(chosen.severity || "warn");
+}
+
 
 /* ─── Info bar ──────────────────────────────────────────────────────────── */
 function _updateInfoBar() {
