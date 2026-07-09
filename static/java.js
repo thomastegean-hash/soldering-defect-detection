@@ -77,18 +77,26 @@ function updateDetectionMessage(detections) {
 
     // One message per distinct error class found on the picture — every
     // mistake gets its own dedicated explanation, not just the single
-    // highest-confidence one. If several boxes share the same class, the
-    // highest-confidence instance of that class is the one shown.
-    const seenClasses = new Set();
-    const byConfidenceDesc = detections.slice().sort((a, b) => b.confidence - a.confidence);
-
-    byConfidenceDesc.forEach(function (det) {
+    // highest-confidence one. If several boxes share the same class, all
+    // of their confidence values are listed together on that one row.
+    const confidencesByClass = new Map();
+    detections.forEach(function (det) {
         const cls = det.class;
-        if (seenClasses.has(cls)) return;
-        seenClasses.add(cls);
+        if (!confidencesByClass.has(cls)) confidencesByClass.set(cls, []);
+        confidencesByClass.get(cls).push(det.confidence);
+    });
 
+    const classesByTopConfidence = Array.from(confidencesByClass.keys()).sort(function (a, b) {
+        return Math.max(...confidencesByClass.get(b)) - Math.max(...confidencesByClass.get(a));
+    });
+
+    classesByTopConfidence.forEach(function (cls) {
         const text = DETECTION_TEXT[cls] || ('Unrecognized issue detected: "' + cls + '".');
-        const confPct = Math.round(det.confidence * 100);
+        const pctList = confidencesByClass.get(cls)
+            .slice()
+            .sort(function (a, b) { return b - a; })
+            .map(function (c) { return Math.round(c * 100) + '%'; })
+            .join(', ');
 
         let severity = "warn";
         if (cls === "good") severity = "ok";
@@ -96,7 +104,7 @@ function updateDetectionMessage(detections) {
 
         const item = document.createElement('div');
         item.className = 'det-message-item ' + severity;
-        item.textContent = text + ' (' + cls + ' \u00b7 ' + confPct + '%)';
+        item.textContent = text + ' (' + cls + ' \u00b7 ' + pctList + ')';
         msgEl.appendChild(item);
     });
 }
