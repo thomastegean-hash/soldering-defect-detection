@@ -2,33 +2,31 @@ const input = document.getElementById("imageInput");
 const image = document.getElementById("mainImage");
 const container = document.querySelector(".image-container");
 
-/* ─── Public API ────────────────────────────────────────────────────────────
-   window.lastDetections  – array of the last rendered detections, each:
-     { class: string, confidence: number, bbox: [x1,y1,x2,y2] }
 
-   window.renderDetections(detections, imgNaturalWidth, imgNaturalHeight)
-     Call this with the array returned by detector.py once you have it.
-     bbox coords must be absolute pixels in the original image space.
-   ──────────────────────────────────────────────────────────────────────── */
+// Dictionary of messages shown on the site for each detection class
+const DETECTION_TEXT = {
+    good: "Everything looks good — no issues detected.",
+    no_good: "A general defect was detected in the top view.",
+    exc_solder: "Warning: Excessive solder detected. This may cause bridging or overheating.",
+    poor_solder: "Poor soldering detected — connection may be weak or unreliable.",
+    spike: "A spike anomaly was detected — check for protruding solder or debris."
+};
 
-window.lastDetections = [];
+
+/* ─── Public API ──────────────────────────────────────────────────────────── */
 
 window.lastDetections = [];
 
 window.renderDetections = function (detections, natW, natH) {
-    // Use the image's own natural dimensions as fallback
     const srcW = natW ?? image.naturalWidth;
     const srcH = natH ?? image.naturalHeight;
 
-    // Remove all previous boxes
     container.querySelectorAll('.square').forEach(el => el.remove());
-
     window.lastDetections = detections || [];
 
     (detections || []).forEach(function (det) {
         const [x1, y1, x2, y2] = det.bbox;
 
-        // Convert absolute px → % relative to the original image size
         const leftPct   = (x1 / srcW) * 100;
         const topPct    = (y1 / srcH) * 100;
         const widthPct  = ((x2 - x1) / srcW) * 100;
@@ -41,17 +39,12 @@ window.renderDetections = function (detections, natW, natH) {
         box.style.width  = widthPct  + '%';
         box.style.height = heightPct + '%';
 
-        // Color calculation for box border/glow based on confidence
-        // formula from your comment:
-        // if conf > 0.5 => green = 255; else green = (conf - 0.5)*2*255 (clamped)
-        // if conf < 0.5 => red = 255; else red = (1-conf)*2*255 (clamped)
         const conf = Number(det.confidence ?? 0);
         const r = conf <= 0.5 ? 255 : Math.round((1 - conf) * 2 * 255);
         const g = conf >= 0.5 ? 255 : Math.round(conf * 2 * 255);
         const color = `rgb(${r},${g},0)`;
         box.style.setProperty('--box-color', color);
 
-        // Label: "ClassName 94%"
         const label = document.createElement('span');
         label.className = 'square-label';
         label.textContent = det.class + ' ' + Math.round(conf * 100) + '%';
@@ -60,110 +53,55 @@ window.renderDetections = function (detections, natW, natH) {
         container.appendChild(box);
     });
 
-    // Update the info bar
     _updateInfoBar();
-
-    // Update the human-readable message below the bar
     updateDetectionMessage(detections);
 };
 
 
-// Map class strings to human messages and severity
-const DETECTION_MESSAGE_MAP = {
-  "good":        { text: "No problem detected.", severity: "ok" },
-  "no_good":     { text: "Generic failure detected (top view).", severity: "error" },
-  "exc_solder":  { text: "Excessive solder detected.", severity: "error" },
-  "poor_solder": { text: "Poor soldering detected.", severity: "warn" },
-  "spike":       { text: "Spike detected.", severity: "warn" }
-};
+/* ─── Human-readable message logic ───────────────────────────────────────── */
 
-// Priority order for message selection (higher index = higher priority)
-const MESSAGE_PRIORITY = ["good", "no_good", "exc_solder", "poor_solder", "spike"];
-
-/**
- * Choose the most relevant message from detections.
- * - detections: array of { class: string, confidence: number, bbox: [...] }
- * Returns { text, severity, reasonClass, confidence } or null if no detections.
- */
-function chooseDetectionMessage(detections) {
-  if (!Array.isArray(detections) || detections.length === 0) return null;
-
-  // Build a map of best confidence per class
-  const bestByClass = {};
-  detections.forEach(det => {
-    const cls = String(det.class || det.label || "").trim();
-    const conf = Number(det.confidence ?? det.score ?? 0);
-    if (!cls) return;
-    if (!bestByClass[cls] || conf > bestByClass[cls].confidence) {
-      bestByClass[cls] = { class: cls, confidence: conf };
-    }
-  });
-
-  // Walk priority list and pick first class present (highest priority wins)
-  for (let i = MESSAGE_PRIORITY.length - 1; i >= 0; i--) {
-    const cls = MESSAGE_PRIORITY[i];
-    if (bestByClass[cls]) {
-      const map = DETECTION_MESSAGE_MAP[cls] || { text: cls, severity: "warn" };
-      return {
-        text: map.text,
-        severity: map.severity,
-        reasonClass: cls,
-        confidence: bestByClass[cls].confidence
-      };
-    }
-  }
-
-  // Fallback: pick highest-confidence detection
-  const highest = Object.values(bestByClass).sort((a,b) => b.confidence - a.confidence)[0];
-  if (highest) {
-    const map = DETECTION_MESSAGE_MAP[highest.class] || { text: highest.class, severity: "warn" };
-    return { text: map.text, severity: map.severity, reasonClass: highest.class, confidence: highest.confidence };
-  }
-
-  return null;
-}
-
-/**
- * Update the message area under the detections bar.
- * Call this from renderDetections(detections) after drawing boxes.
- */
 function updateDetectionMessage(detections) {
-  const el = document.getElementById("detection-message");
-  if (!el) return;
+    const msgEl = document.getElementById("detection-message");
+    if (!msgEl) return;
 
-  const chosen = chooseDetectionMessage(detections);
-  // Clear previous classes
-  el.classList.remove("ok", "warn", "error");
+    msgEl.classList.remove("ok", "warn", "error");
+    msgEl.textContent = "";
 
-  if (!chosen) {
-    el.textContent = "";
-    return;
-  }
+    if (!detections || detections.length === 0) {
+        msgEl.textContent = "No detections.";
+        msgEl.classList.add("ok");
+        return;
+    }
 
-  // Format confidence as percentage with no decimals
-  const confPct = (typeof chosen.confidence === "number")
-    ? `${Math.round(chosen.confidence * 100)}%`
-    : "";
+    const best = detections.reduce((a, b) => a.confidence > b.confidence ? a : b);
 
-  // Compose message: main text + optional reason/confidence
-  const reason = chosen.reasonClass ? ` (${chosen.reasonClass}${confPct ? ` · ${confPct}` : ""})` : (confPct ? ` (${confPct})` : "");
-  el.textContent = `${chosen.text}${reason}`;
+    const cls = best.class;
+    const confPct = Math.round(best.confidence * 100);
 
-  // Apply severity class for color
-  el.classList.add(chosen.severity || "warn");
+    const text = DETECTION_TEXT[cls] || ("Detected: " + cls);
+
+    let severity = "warn";
+    if (cls === "good") severity = "ok";
+    if (cls === "exc_solder" || cls === "no_good") severity = "error";
+
+    msgEl.classList.add(severity);
+    msgEl.textContent = `${text} (${cls} · ${confPct}%)`;
 }
 
 
 /* ─── Info bar ──────────────────────────────────────────────────────────── */
+
 function _updateInfoBar() {
     const bar = document.getElementById('detections-bar');
     if (!bar) return;
+
     const dets = window.lastDetections;
     if (!dets.length) {
         bar.textContent = 'No detections';
         bar.classList.remove('has-detections');
         return;
     }
+
     bar.classList.add('has-detections');
 
     const viewBadge = window.lastView
@@ -184,11 +122,12 @@ function _updateInfoBar() {
     bar.innerHTML = viewBadge + chips;
 }
 
+
 /* ─── Backend fetch ─────────────────────────────────────────────────────── */
+
 async function _fetchDetections(file) {
     const bar = document.getElementById('detections-bar');
 
-    // Show loading state
     bar.classList.remove('has-detections');
     bar.textContent = 'Detecting…';
 
@@ -204,7 +143,6 @@ async function _fetchDetections(file) {
         }
 
         const data = await res.json();
-        // data = { view: "top"|"perspective", detections: [{class, confidence, bbox}] }
 
         window.lastView = data.view;
         window.renderDetections(data.detections);
@@ -215,6 +153,7 @@ async function _fetchDetections(file) {
         console.error('[detect]', err);
     }
 }
+
 
 /* ─── File input ────────────────────────────────────────────────────────── */
 input.addEventListener("change", () => {
