@@ -65,27 +65,40 @@ function updateDetectionMessage(detections) {
     if (!msgEl) return;
 
     msgEl.classList.remove("ok", "warn", "error");
-    msgEl.textContent = "";
+    msgEl.innerHTML = "";
 
     if (!detections || detections.length === 0) {
-        msgEl.textContent = "No detections.";
-        msgEl.classList.add("ok");
+        const item = document.createElement('div');
+        item.className = 'det-message-item ok';
+        item.textContent = "No detections.";
+        msgEl.appendChild(item);
         return;
     }
 
-    const best = detections.reduce((a, b) => a.confidence > b.confidence ? a : b);
+    // One message per distinct error class found on the picture — every
+    // mistake gets its own dedicated explanation, not just the single
+    // highest-confidence one. If several boxes share the same class, the
+    // highest-confidence instance of that class is the one shown.
+    const seenClasses = new Set();
+    const byConfidenceDesc = detections.slice().sort((a, b) => b.confidence - a.confidence);
 
-    const cls = best.class;
-    const confPct = Math.round(best.confidence * 100);
+    byConfidenceDesc.forEach(function (det) {
+        const cls = det.class;
+        if (seenClasses.has(cls)) return;
+        seenClasses.add(cls);
 
-    const text = DETECTION_TEXT[cls] || ("Detected: " + cls);
+        const text = DETECTION_TEXT[cls] || ('Unrecognized issue detected: "' + cls + '".');
+        const confPct = Math.round(det.confidence * 100);
 
-    let severity = "warn";
-    if (cls === "good") severity = "ok";
-    if (cls === "exc_solder" || cls === "no_good") severity = "error";
+        let severity = "warn";
+        if (cls === "good") severity = "ok";
+        if (cls === "exc_solder" || cls === "no_good") severity = "error";
 
-    msgEl.classList.add(severity);
-    msgEl.textContent = `${text} (${cls} · ${confPct}%)`;
+        const item = document.createElement('div');
+        item.className = 'det-message-item ' + severity;
+        item.textContent = text + ' (' + cls + ' \u00b7 ' + confPct + '%)';
+        msgEl.appendChild(item);
+    });
 }
 
 
