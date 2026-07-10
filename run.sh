@@ -1,6 +1,7 @@
 #!/bin/bash
 
 docker run --rm -it \
+  --env-file .env \
   --device=/dev/kfd \
   --device=/dev/dri \
   --group-add video \

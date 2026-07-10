@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Inspection Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:            #0c1512;
+    --panel:         #101d18;
+    --panel-line:    #1d2f27;
+    --card:          #14211b;
+    --copper:        #c17a4e;
+    --copper-dim:    #8a5636;
+    --moss:          #4a7c59;
+    --moss-dim:      #2c4a37;
+    --amber:         #e8a33d;
+    --ink:           #e9e6dc;
+    --ink-dim:       #8fa199;
+    --ink-faint:     #55655e;
+    --danger:        #cf5a4a;
+    --radius:        3px;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    display:flex;
+    min-height:100vh;
+  }
+
+  a{ color:inherit; }
+
+  /* ---------- layout ---------- */
+  .wrap{
+    display:flex;
+    width:100%;
+    min-height:100vh;
+  }
+
+  .stage{
+    position:relative;
+    flex:1 1 56%;
+    background:
+      linear-gradient(180deg, var(--panel) 0%, #0e1a15 100%);
+    border-right:1px solid var(--panel-line);
+    padding:40px 44px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  .stage::before{
+    /* faint trace grid, grounds it in PCB material rather than generic grid */
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:
+      linear-gradient(var(--panel-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--panel-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity:0.35;
+    mask-image: radial-gradient(ellipse at 60% 40%, black 10%, transparent 72%);
+    -webkit-mask-image: radial-gradient(ellipse at 60% 40%, black 10%, transparent 72%);
+  }
+
+  .stage-head{
+    position:relative;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    font-family:var(--mono);
+    z-index:2;
+  }
+  .stage-head .brand{
+    font-size:13px;
+    letter-spacing:0.14em;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+  }
+  .stage-head .brand b{ color:var(--copper); font-weight:600; }
+  .stage-head .station{
+    font-size:11px;
+    letter-spacing:0.12em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+
+  .scene{
+    position:relative;
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2;
+  }
+  .scene svg{ width:100%; max-width:520px; height:auto; }
+
+  .stage-foot{
+    position:relative;
+    z-index:2;
+    display:flex;
+    gap:28px;
+    font-family:var(--mono);
+    padding-top:8px;
+    border-top:1px solid var(--panel-line);
+  }
+  .metric{ display:flex; flex-direction:column; gap:4px; }
+  .metric .num{ font-size:19px; color:var(--ink); font-weight:500; }
+  .metric .num.flag{ color:var(--amber); }
+  .metric .lbl{ font-size:10px; letter-spacing:0.1em; color:var(--ink-faint); text-transform:uppercase; }
+
+  /* ---------- form side ---------- */
+  .panel{
+    flex:1 1 44%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px;
+  }
+
+  .card{ width:100%; max-width:360px; }
+
+  .card .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--moss);
+    margin:0 0 10px;
+  }
+
+  .card h1{
+    font-family:var(--sans);
+    font-size:26px;
+    font-weight:600;
+    line-height:1.25;
+    margin:0 0 8px;
+    color:var(--ink);
+  }
+
+  .card .sub{
+    font-size:13.5px;
+    color:var(--ink-dim);
+    margin:0 0 30px;
+    line-height:1.5;
+  }
+
+  form{ display:flex; flex-direction:column; gap:18px; }
+
+  .field{ display:flex; flex-direction:column; gap:7px; }
+  .field label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+  .field input{
+    background:var(--card);
+    border:1px solid var(--panel-line);
+    border-radius:var(--radius);
+    padding:11px 12px;
+    font-family:var(--mono);
+    font-size:14px;
+    color:var(--ink);
+    outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .field input::placeholder{ color:var(--ink-faint); }
+  .field input:focus-visible{
+    border-color:var(--copper);
+    box-shadow:0 0 0 3px rgba(193,122,78,0.18);
+  }
+  .field input:hover{ border-color:#2a3d34; }
+
+  .row-between{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:12.5px;
+  }
+  .check{
+    display:flex; align-items:center; gap:8px;
+    color:var(--ink-dim);
+    cursor:pointer;
+    user-select:none;
+  }
+  .check input{
+    appearance:none; -webkit-appearance:none;
+    width:15px; height:15px;
+    border:1px solid var(--panel-line);
+    border-radius:2px;
+    background:var(--card);
+    display:grid; place-content:center;
+    cursor:pointer;
+  }
+  .check input:checked{ border-color:var(--moss); }
+  .check input:checked::after{
+    content:"";
+    width:8px; height:8px;
+    background:var(--moss);
+    border-radius:1px;
+  }
+  .check input:focus-visible{ box-shadow:0 0 0 3px rgba(74,124,89,0.25); }
+
+  .link-muted{
+    color:var(--ink-faint);
+    text-decoration:none;
+    border-bottom:1px solid transparent;
+  }
+  .link-muted:hover{ color:var(--copper); border-bottom-color:var(--copper-dim); }
+
+  button.submit{
+    margin-top:4px;
+    background:var(--copper);
+    color:#1b0f08;
+    border:none;
+    border-radius:var(--radius);
+    padding:12px 16px;
+    font-family:var(--mono);
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:background .15s ease, transform .05s ease;
+  }
+  button.submit:hover{ background:#cf8a5c; }
+  button.submit:active{ transform:translateY(1px); }
+  button.submit:focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:2px;
+  }
+  button.submit:disabled{
+    background:var(--copper-dim);
+    cursor:progress;
+    opacity:0.75;
+  }
+
+  .error-box{
+    display:none;
+    align-items:flex-start;
+    gap:9px;
+    background:rgba(207,90,74,0.1);
+    border:1px solid rgba(207,90,74,0.35);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    font-size:12.5px;
+    color:#e79488;
+    line-height:1.5;
+  }
+  .error-box.show{ display:flex; }
+  .error-box svg{ flex:none; margin-top:2px; }
+
+  .card-foot{
+    margin-top:26px;
+    padding-top:20px;
+    border-top:1px solid var(--panel-line);
+    font-size:12px;
+    color:var(--ink-faint);
+    line-height:1.6;
+  }
+  .card-foot b{ color:var(--ink-dim); font-weight:500; }
+
+  /* ---------- scan animation ---------- */
+  .reticle{ transform-box:fill-box; }
+  @keyframes sweep{
+    0%   { transform:translate(0px,0px); }
+    30%  { transform:translate(78px,-10px); }
+    55%  { transform:translate(78px,-10px); }
+    85%  { transform:translate(150px,34px); }
+    100% { transform:translate(150px,34px); }
+  }
+  @keyframes tagFade{
+    0%,28%   { opacity:0; }
+    32%,52%  { opacity:1; }
+    56%,83%  { opacity:0; }
+    87%,98%  { opacity:1; }
+    100%     { opacity:1; }
+  }
+  .reticle{ animation:sweep 6s ease-in-out infinite; }
+  .tag{ animation:tagFade 6s ease-in-out infinite; }
+  .pulse{ animation:pulseDot 2.4s ease-in-out infinite; }
+  @keyframes pulseDot{
+    0%,100%{ opacity:0.4; } 50%{ opacity:1; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .reticle, .tag, .pulse{ animation:none !important; }
+    .tag{ opacity:1; }
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 880px){
+    .wrap{ flex-direction:column; }
+    .stage{ flex:none; min-height:280px; border-right:none; border-bottom:1px solid var(--panel-line); padding:28px 24px; }
+    .stage-foot{ display:none; }
+    .panel{ padding:32px 24px 56px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ================= LEFT: signature scene ================= -->
+  <section class="stage" aria-hidden="true">
+    <div class="stage-head">
+      <div class="brand"><b>SOLDER//QA</b> &nbsp;inspection console</div>
+      <div class="station">LINE 04 · STATION 2</div>
+    </div>
+
+    <div class="scene">
+      <svg viewBox="0 0 480 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- copper traces -->
+        <g fill="none" stroke="#2c4a37" stroke-width="2">
+          <path d="M20 40 H160 V90 H260"/>
+          <path d="M20 90 H90 V160"/>
+          <path d="M20 200 H120 V250 H300"/>
+          <path d="M300 40 V120 H420 V200"/>
+          <path d="M420 40 V80 H370"/>
+          <path d="M180 250 V190 H240"/>
+          <path d="M420 250 H340 V220"/>
+        </g>
+        <g fill="none" stroke="#3a5c46" stroke-width="1">
+          <circle cx="20" cy="40" r="3" fill="#3a5c46" stroke="none"/>
+          <circle cx="160" cy="40" r="3" fill="#3a5c46" stroke="none"/>
+          <circle cx="20" cy="90" r="3" fill="#3a5c46" stroke="none"/>
+          <circle cx="20" cy="200" r="3" fill="#3a5c46" stroke="none"/>
+          <circle cx="300" cy="40" r="3" fill="#3a5c46" stroke="none"/>
+          <circle cx="420" cy="40" r="3" fill="#3a5c46" stroke="none"/>
+        </g>
+
+        <!-- IC footprint -->
+        <g transform="translate(60,110)">
+          <rect x="0" y="0" width="70" height="46" rx="2" fill="#0e1a15" stroke="#264135" stroke-width="1.5"/>
+          <circle cx="8" cy="8" r="2.2" fill="#264135"/>
+          <g stroke="#8a9a90" stroke-width="2">
+            <line x1="-8" y1="8"  x2="0" y2="8"/>
+            <line x1="-8" y1="20" x2="0" y2="20"/>
+            <line x1="-8" y1="32" x2="0" y2="32"/>
+            <line x1="70" y1="8"  x2="78" y2="8"/>
+            <line x1="70" y1="20" x2="78" y2="20"/>
+            <line x1="70" y1="32" x2="78" y2="32"/>
+          </g>
+        </g>
+
+        <!-- solder joints row (the thing being inspected) -->
+        <g transform="translate(150,150)">
+          <g stroke="#5b6b63" stroke-width="1.4">
+            <line x1="0"  y1="-14" x2="0"  y2="14"/>
+            <line x1="26" y1="-14" x2="26" y2="14"/>
+            <line x1="52" y1="-14" x2="52" y2="14"/>
+            <line x1="78" y1="-14" x2="78" y2="14"/>
+          </g>
+          <circle cx="0"  cy="0" r="6.5" fill="#b8b8b0"/>
+          <circle cx="26" cy="0" r="6.5" fill="#b8b8b0"/>
+          <!-- flagged joint: dull / insufficient solder -->
+          <circle cx="52" cy="0" r="5.5" fill="#6d6a5e"/>
+          <circle cx="78" cy="0" r="6.5" fill="#b8b8b0"/>
+        </g>
+
+        <!-- resistor pack lower -->
+        <g transform="translate(240,210)">
+          <rect x="0" y="0" width="46" height="18" rx="2" fill="#132018" stroke="#264135" stroke-width="1.5"/>
+          <rect x="6" y="0" width="6" height="18" fill="#4a7c59" opacity="0.6"/>
+          <rect x="18" y="0" width="6" height="18" fill="#c17a4e" opacity="0.55"/>
+        </g>
+
+        <!-- scanning reticle -->
+        <g class="reticle" transform="translate(140,132)">
+          <g stroke="#e8a33d" stroke-width="2" fill="none">
+            <path d="M0 0 L0 10 M0 0 L10 0"/>
+            <path d="M46 0 L46 10 M46 0 L36 0"/>
+            <path d="M0 40 L0 30 M0 40 L10 40"/>
+            <path d="M46 40 L46 30 M46 40 L36 40"/>
+          </g>
+          <g class="tag" transform="translate(0,-14)">
+            <rect x="0" y="-14" width="112" height="16" fill="#e8a33d"/>
+            <text x="6" y="-2" font-family="IBM Plex Mono, monospace" font-size="10" fill="#1b0f08" font-weight="600">JOINT · 0.41 LOW-Sn</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="stage-foot">
+      <div class="metric">
+        <span class="num">128,402</span>
+        <span class="lbl">Joints scanned today</span>
+      </div>
+      <div class="metric">
+        <span class="num flag">3</span>
+        <span class="lbl">Defects flagged</span>
+      </div>
+      <div class="metric">
+        <span class="num"><span class="pulse" style="color:#4a7c59;">●</span>&nbsp;Live</span>
+        <span class="lbl">Model status</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RIGHT: sign-in form ================= -->
+  <section class="panel">
+    <div class="card">
+      <p class="eyebrow">Operator sign-in</p>
+      <h1>Access the inspection console</h1>
+      <p class="sub">Sign in to review flagged joints, confirm defects, and release boards from Line&nbsp;04.</p>
+
+      <div class="error-box" id="errorBox" role="alert">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1L15 14H1L8 1Z" stroke="#e79488" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6V9" stroke="#e79488" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.3" r="0.8" fill="#e79488"/></svg>
+        <span id="errorText">Operator ID or password not recognized. Try again, or contact your line supervisor.</span>
+      </div>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="operatorId">Operator ID</label>
+          <input type="text" id="operatorId" name="operatorId" placeholder="e.g. OP-2247" autocomplete="username" required>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+
+        <div class="row-between">
+          <label class="check">
+            <input type="checkbox" id="remember" name="remember">
+            Stay signed in on this terminal
+          </label>
+          <a class="link-muted" href="#">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="submit" id="submitBtn">Sign in</button>
+      </form>
+
+
+      <div class="card-foot">
+        No account for this terminal? <b>Ask your line supervisor</b> to provision an Operator ID for Station&nbsp;2.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  // Wire this up to your auth endpoint (see app/routers/auth.py).
+  // Expects POST /api/auth/login → 200 + redirect, or 401 with {"detail": "..."}
+  const form = document.getElementById('loginForm');
+  const errorBox = document.getElementById('errorBox');
+  const errorText = document.getElementById('errorText');
+  const submitBtn = document.getElementById('submitBtn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBox.classList.remove('show');
+
+    const operatorId = document.getElementById('operatorId').value.trim();
+    const password = document.getElementById('password').value;
+
+    const remember = document.getElementById('remember').checked;
+
+    if (!operatorId || !password) {
+      errorText.textContent = 'Enter both an Operator ID and a password.';
+      errorBox.classList.add('show');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in…';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ operator_id: operatorId, password, remember })
+      });
+
+      if (res.ok) {
+        window.location.href = '/';
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      errorText.textContent = data.detail || 'Operator ID or password not recognized. Try again, or contact your line supervisor.';
+      errorBox.classList.add('show');
+    } catch (err) {
+      errorText.textContent = 'Could not reach the inspection server. Check the connection and try again.';
+      errorBox.classList.add('show');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign in';
+    }
+  });
+</script>
+
+</body>
+</html>
+

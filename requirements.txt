@@ -3,3 +3,8 @@ opencv-python
 fastapi
 uvicorn
 python-multipart
+passlib[bcrypt]
+bcrypt==4.0.1
+itsdangerous
+jinja2
+slowapi
