@@ -1,11 +1,14 @@
 :root {
-    --bg: #10141c;
-    --bg-grid: #171d28;
-    --panel: #161b25;
-    --line: #2a3242;
-    --text: #dfe4ee;
-    --muted: #7d8aa3;
-    --accent: #ff3b3b;
+    --bg:       #0c1512;
+    --bg-grid:  #1d2f27;
+    --panel:    #101d18;
+    --line:     #1d2f27;
+    --text:     #e9e6dc;
+    --muted:    #8fa199;
+    --accent:   #c17a4e;
+    --moss:     #4a7c59;
+    --amber:    #e8a33d;
+    --danger:   #cf5a4a;
 }
 
 * { box-sizing: border-box; }
@@ -21,7 +24,7 @@ body {
         linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 28px 28px,
         linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 28px 28px,
         var(--bg);
-    font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
     color: var(--text);
     overflow: auto;
 }
@@ -83,40 +86,40 @@ body {
 }
 
 .det-message-item.ok {
-    color: #9be89b;
-    border-color: rgba(155,232,155,0.12);
-    background: rgba(155,232,155,0.03);
+    color: #4a7c59;
+    border-color: rgba(74,124,89,0.2);
+    background: rgba(74,124,89,0.05);
 }
 
 .det-message-item.warn {
-    color: #ffd36b;
-    border-color: rgba(255,211,107,0.12);
-    background: rgba(255,211,107,0.03);
+    color: #e8a33d;
+    border-color: rgba(232,163,61,0.2);
+    background: rgba(232,163,61,0.05);
 }
 
 .det-message-item.error {
-    color: #ff9b9b;
-    border-color: rgba(255,155,155,0.12);
-    background: rgba(255,155,155,0.03);
+    color: #cf5a4a;
+    border-color: rgba(207,90,74,0.2);
+    background: rgba(207,90,74,0.05);
 }
 
 /* States */
 .det-message.ok {
-    color: #9be89b;
-    border-color: rgba(155,232,155,0.12);
-    background: rgba(155,232,155,0.03);
+    color: #4a7c59;
+    border-color: rgba(74,124,89,0.2);
+    background: rgba(74,124,89,0.05);
 }
 
 .det-message.warn {
-    color: #ffd36b;
-    border-color: rgba(255,211,107,0.12);
-    background: rgba(255,211,107,0.03);
+    color: #e8a33d;
+    border-color: rgba(232,163,61,0.2);
+    background: rgba(232,163,61,0.05);
 }
 
 .det-message.error {
-    color: #ff9b9b;
-    border-color: rgba(255,155,155,0.12);
-    background: rgba(255,155,155,0.03);
+    color: #cf5a4a;
+    border-color: rgba(207,90,74,0.2);
+    background: rgba(207,90,74,0.05);
 }
 
 .image-container img {
@@ -145,7 +148,7 @@ body {
     left: -2px;
     background: var(--box-color, var(--accent));
     color: #fff;
-    font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.5px;
