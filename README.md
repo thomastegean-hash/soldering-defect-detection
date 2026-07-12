@@ -149,6 +149,10 @@ The base Docker image (`rocm/pytorch`) is pulled from Docker Hub on first build.
 
 ---
 
+dataset source: https://doi.org/10.3390/jmmp8030117
+SolDef_AI: An Open Source PCB Dataset for Mask R-CNN Defect Detection in Soldering Processes of Electronic Components
+Authors: Gianmauro Fontana, Maurizio Calabrese, Leonardo Agnusdei, Gabriele Papadia, Antonio Del Prete
+
 ## Checklist
 
 | Item | Status |
