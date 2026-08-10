@@ -24,34 +24,35 @@ SMD Vision is a browser-based inspection application for detecting soldering def
 SMD Vision uses a two-stage computer vision pipeline:
 
 ```
-                PCB Image
-                    │
-                    ▼
-          ┌──────────────────┐
-          │  View Classifier  │
-          │      YOLO         │
-          └────────┬─────────┘
-                   │
-          ┌────────┴─────────┐
-          │                  │
-    perspective              top
-          │                  │
-          ▼                  ▼
-┌─────────────────┐  ┌─────────────────┐
-│ Perspective      │  │ Top-View        │
-│ Detector         │  │ Detector        │
-└────────┬────────┘  └────────┬────────┘
-         │                    │
-         └──────────┬─────────┘
-                    ▼
-           Defect detections
-                    │
-                    ▼
-          Class + confidence
-             + bounding box
-                    │
-                    ▼
-            Annotated image
+                    PCB Image
+                       │
+                       ▼
+              ┌─────────────────┐
+              │  View Classifier.   │
+              │      YOLO           │
+              └────────┬────────┘
+                         │
+           ┌───────────┴───────────┐
+           │                            │
+      perspective                       top
+           │                            │
+           ▼                            ▼
+  ┌────────────────┐       ┌────────────────┐
+  │ Perspective        │       │ Top-View           │
+  │ Detector           │       │ Detector           │
+  └────────┬───────┘       └─────────┬──────┘
+             │                             │
+             └───────────┬───────────┘
+                            │
+                            ▼
+                     Defect detections
+                            │
+                            ▼
+                   Class + confidence
+                    + bounding box
+                            │
+                            ▼
+                      Annotated image
 ```
 
 Each detection returns:
