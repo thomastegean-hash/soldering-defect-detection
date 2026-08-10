@@ -1,207 +1,90 @@
-SMD Vision
+# SMD Vision
 
 Real-time PCB soldering defect detection using YOLO, FastAPI, and AMD GPUs with ROCm.
 
-SMD Vision is a browser-based inspection application for detecting soldering defects on PCB images. It uses a two-stage YOLO inference pipeline to first determine the PCB view and then route the image to the appropriate specialized defect-detection model.
+SMD Vision is a browser-based inspection application for detecting soldering defects on PCB images. It uses a two-stage YOLO inference pipeline to first classify the PCB view, then route the image to the appropriate specialized defect-detection model. Inference runs fully locally — no cloud services required.
 
-The application runs inference locally through a FastAPI backend and is designed for AMD GPUs using the ROCm stack — no NVIDIA GPU is required.
+---
 
-Features
+## Features
 
-- Browser-based PCB image inspection
-- Two-stage YOLO inference pipeline
-  - Classifies the input as a "perspective" or "top" view
-  - Routes the image to the corresponding specialized detection model
-- Soldering defect detection with bounding boxes
-- Detection confidence scores and defect classes
-- Annotated image results
-- AMD GPU acceleration through ROCm
-- Docker-based deployment
-- Operator authentication with bcrypt password verification
-- Signed session cookies with configurable expiration
-- "Remember me" sessions
-- Login rate limiting
-- Protected application routes
-- Development and production configuration modes
-- Fully local inference with no cloud inference service required
-- Trained YOLO models included in the repository
+- **Browser-based** PCB image inspection UI
+- **Two-stage YOLO pipeline** — classifies perspective vs. top-down view, then routes to the appropriate detector
+- **Bounding box annotations** with confidence scores and defect class labels
+- **AMD GPU acceleration** via ROCm (no NVIDIA GPU required)
+- **Docker-based deployment**
+- **Operator authentication** — bcrypt password verification, signed session cookies, rate limiting, and "remember me" support
+- **Fully local inference** — no cloud APIs or external model registries
+- **Trained YOLO weights included** in the repository
 
-How It Works
+---
 
-SMD Vision uses a two-stage computer-vision pipeline.
+## How It Works
 
-                    PCB Image
-                        │
-                        ▼
-              ┌──────────────────┐
-              │  View Classifier  │
-              │      YOLO         │
-              └────────┬─────────┘
-                       │
-              ┌────────┴─────────┐
-              │                  │
-        perspective              top
-              │                  │
-              ▼                  ▼
-    ┌─────────────────┐  ┌─────────────────┐
-    │ Perspective     │  │ Top-View        │
-    │ Detector        │  │ Detector        │
-    └────────┬────────┘  └────────┬────────┘
-             │                    │
-             └──────────┬─────────┘
-                        ▼
-               Defect detections
-                        │
-                        ▼
-              Class + confidence
-                 + bounding box
-                        │
-                        ▼
-                Annotated image
+SMD Vision uses a two-stage computer vision pipeline:
 
-The view classifier selects the detector before defect inference is performed. This allows separate models to specialize in different PCB viewing conditions.
+```
+                PCB Image
+                    │
+                    ▼
+          ┌──────────────────┐
+          │  View Classifier  │
+          │      YOLO         │
+          └────────┬─────────┘
+                   │
+          ┌────────┴─────────┐
+          │                  │
+    perspective              top
+          │                  │
+          ▼                  ▼
+┌─────────────────┐  ┌─────────────────┐
+│ Perspective      │  │ Top-View        │
+│ Detector         │  │ Detector        │
+└────────┬────────┘  └────────┬────────┘
+         │                    │
+         └──────────┬─────────┘
+                    ▼
+           Defect detections
+                    │
+                    ▼
+          Class + confidence
+             + bounding box
+                    │
+                    ▼
+            Annotated image
+```
 
-Each detection contains:
+Each detection returns:
 
+```json
 {
   "class": "example_defect",
   "confidence": 0.94,
   "bbox": [x1, y1, x2, y2]
 }
+```
 
-The detection pipeline also returns the classified PCB view.
+The pipeline also returns the classified PCB view alongside detections.
 
-Application Architecture
+---
 
-The application consists of a FastAPI backend, authentication layer, inference pipeline, and browser frontend.
+## Models
 
-Browser
-   │
-   ├── Login
-   │      │
-   │      └── /api/auth/login
-   │             │
-   │             ├── bcrypt verification
-   │             ├── rate limiting
-   │             └── signed session cookie
-   │
-   └── Authenticated inspection UI
-              │
-              ▼
-         FastAPI routes
-              │
-              ▼
-        YOLO inference
-              │
-       ┌──────┴──────┐
-       ▼             ▼
- Perspective       Top-view
- detector          detector
-       │             │
-       └──────┬──────┘
-              ▼
-       Detection results
+Trained YOLO weights are included in the repository under `models/deploy/`. No download or external model registry is required.
 
-Main code path:
+| Model | Purpose |
+|---|---|
+| View classifier | Determines whether the input is a perspective or top-down PCB image |
+| Perspective detector | Detects soldering defects in perspective-view images |
+| Top-view detector | Detects soldering defects in top-down images |
 
-app/main.py
-    ↓
-FastAPI routes
-    ↓
-Detection pipeline
-    ↓
-View classifier
-    ↓
-Perspective / top-view detector
-    ↓
-Detection results
+> **Note:** Check the repository license and applicable dataset/model licensing terms before redistributing the weights separately.
 
-Models
+---
 
-The trained YOLO models required by SMD Vision are included in the repository under:
+## Project Structure
 
-models/
-└── deploy/
-
-The application uses three models:
-
-Model| Purpose
-View classifier| Determines whether the PCB image is a perspective or top-down view
-Perspective detector| Detects soldering defects in perspective-view images
-Top-view detector| Detects soldering defects in top-down images
-
-The inference pipeline automatically selects the appropriate detector after classifying the input view.
-
-No model download or external model registry is required to run the application.
-
-The model weights are distributed with this repository. Check the repository license and the applicable model/dataset licensing terms before redistributing the weights separately.
-
-Authentication
-
-SMD Vision includes session-based operator authentication for the inspection console.
-
-- Passwords are verified using bcrypt.
-- Login attempts are limited to 10 attempts per minute.
-- Successful authentication creates a signed session cookie using "itsdangerous".
-- Normal sessions last 8 hours.
-- "Remember me" sessions last 14 days.
-- Session cookies use "HttpOnly" and "SameSite=Lax".
-- Production cookies use the "Secure" flag.
-- Protected routes require an authenticated operator.
-- Operator IDs, names, and roles are available to authenticated endpoints.
-- Failed and successful authentication attempts are logged without logging passwords.
-- Unknown operator IDs perform a dummy bcrypt verification to reduce timing differences during authentication.
-
-Production configuration
-
-Production deployments require:
-
-ENV=production
-SESSION_SECRET=<long-random-secret>
-OPERATORS_JSON=<operator-configuration>
-
-Generate a session secret with:
-
-python3 -c "import secrets; print(secrets.token_hex(32))"
-
-"OPERATORS_JSON" contains the configured operator accounts and bcrypt password hashes.
-
-In development mode, the application can use a built-in fixture operator when "OPERATORS_JSON" is not provided.
-
-«Do not use the development fixture credentials in production.»
-
-AMD GPU / ROCm
-
-SMD Vision is designed to run inference on AMD GPUs using ROCm.
-
-The Docker image is based on:
-
-rocm/pytorch:rocm7.1_ubuntu24.04_py3.12_pytorch_release_2.8.0
-
-The container receives AMD GPU access through two device nodes:
-
-Device| Purpose
-"/dev/kfd"| AMD Kernel Fusion Driver / GPU compute
-"/dev/dri"| Direct Rendering Infrastructure
-
-The container is also started with the "video" and "render" groups, which are commonly required for AMD GPU access.
-
-Requirements
-
-- Linux host
-- Docker
-- AMD GPU supported by the installed ROCm version
-- ROCm drivers installed on the host
-- Docker device passthrough support
-
-Verify that the host can see the GPU before starting the application:
-
-rocm-smi
-
-If the host cannot see the GPU through ROCm, the Docker container will not be able to use it either.
-
-Project Structure
-
+```
 .
 ├── app/
 │   ├── main.py             # FastAPI application entry point
@@ -220,56 +103,66 @@ Project Structure
 ├── build.sh                # Docker image build script
 ├── run.sh                  # Container startup script
 └── requirements.txt        # Python dependencies
+```
 
-Setup
+---
 
-Prerequisites
+## Requirements
 
-You need:
-
-- Docker
 - Linux host
-- AMD GPU with compatible ROCm support
+- Docker
+- AMD GPU supported by the installed ROCm version
 - ROCm drivers installed on the host
 
-No model download is required. The trained YOLO weights are already included in "models/deploy/".
+Verify the host can see the GPU before starting the application:
 
-1. Configure the session secret
+```bash
+rocm-smi
+```
 
-Create a ".env" file in the project root:
+---
 
+## Setup
+
+### 1. Configure the session secret
+
+Create a `.env` file in the project root:
+
+```env
 ENV=production
 SESSION_SECRET=your-generated-secret
 OPERATORS_JSON=...
+```
 
 Generate a secure session secret:
 
+```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
+```
 
-For development, "ENV" can be omitted. The application provides a development configuration when production-only environment variables are not supplied.
+> For development, `ENV` can be omitted. The application uses a built-in fixture operator when `OPERATORS_JSON` is not set.
+>
+> **Do not use the development fixture credentials in production.**
 
-2. Build the Docker image
+### 2. Build the Docker image
 
-Run:
-
+```bash
 ./build.sh
+```
 
-This builds the application image using the ROCm PyTorch base image.
+This builds the application image from the ROCm PyTorch base image.
 
-3. Start the application
+### 3. Start the application
 
-Run:
-
+```bash
 ./run.sh
+```
 
-The application will be available at:
+The application will be available at **http://localhost:8000**.
 
-http://localhost:8000
+The underlying Docker command:
 
-The container is configured for AMD GPU passthrough.
-
-The underlying Docker command is:
-
+```bash
 docker run --rm -it \
   --env-file .env \
   --device=/dev/kfd \
@@ -282,33 +175,39 @@ docker run --rm -it \
   -v "$(pwd):/app" \
   -v "$HOME/data:/data" \
   yolo-app
+```
 
-API
+---
 
-The application exposes authentication and inspection endpoints through FastAPI.
+## API
 
-Authentication
+### Authentication
 
-GET  /login
-POST /api/auth/login
-POST /api/auth/logout
-GET  /api/auth/me
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/login` | Login page |
+| `POST` | `/api/auth/login` | Authenticate an operator |
+| `POST` | `/api/auth/logout` | End the current session |
+| `GET` | `/api/auth/me` | Return the authenticated operator |
 
-Login
+### Login
 
+```http
 POST /api/auth/login
 Content-Type: application/json
+```
 
-Example:
-
+```json
 {
   "operator_id": "OP-1001",
   "password": "password",
   "remember": false
 }
+```
 
-A successful login creates the signed session cookie and returns the authenticated operator:
+**Response:**
 
+```json
 {
   "ok": true,
   "operator": {
@@ -317,91 +216,125 @@ A successful login creates the signed session cookie and returns the authenticat
     "role": "operator"
   }
 }
+```
 
-Authentication-protected endpoints require the session cookie created during login.
+A successful login sets a signed session cookie. All protected routes require this cookie.
 
-Dependencies
+---
 
-Package| Purpose
-"ultralytics"| YOLO model loading and inference
-"opencv-python"| Image processing and annotation
-"fastapi"| Web API framework
-"uvicorn"| ASGI server
-"python-multipart"| File upload handling
-"passlib[bcrypt]" / "bcrypt"| Password hashing and verification
-"itsdangerous"| Signed session tokens
-"jinja2"| Template support
-"slowapi"| API rate limiting
-"pydantic"| Request and response validation
+## Authentication Details
 
-All Python dependencies are installed inside the Docker image from "requirements.txt".
+| Property | Value |
+|---|---|
+| Password hashing | bcrypt |
+| Login rate limit | 10 attempts / minute |
+| Default session duration | 8 hours |
+| "Remember me" duration | 14 days |
+| Cookie flags | `HttpOnly`, `SameSite=Lax` |
+| Production cookie flag | `Secure` |
 
-External Services
+- Unknown operator IDs perform a dummy bcrypt verification to reduce timing differences during authentication.
+- Failed and successful login attempts are logged; passwords are never logged.
 
-Inference runs locally inside the Docker container.
+---
 
-There are no runtime dependencies on:
+## AMD GPU / ROCm
+
+The Docker image is based on:
+
+```
+rocm/pytorch:rocm7.1_ubuntu24.04_py3.12_pytorch_release_2.8.0
+```
+
+The container receives AMD GPU access through:
+
+| Device | Purpose |
+|---|---|
+| `/dev/kfd` | AMD Kernel Fusion Driver / GPU compute |
+| `/dev/dri` | Direct Rendering Infrastructure |
+
+The `video` and `render` groups are also required for GPU access.
+
+---
+
+## Dependencies
+
+| Package | Purpose |
+|---|---|
+| `ultralytics` | YOLO model loading and inference |
+| `opencv-python` | Image processing and annotation |
+| `fastapi` | Web API framework |
+| `uvicorn` | ASGI server |
+| `python-multipart` | File upload handling |
+| `passlib[bcrypt]` / `bcrypt` | Password hashing and verification |
+| `itsdangerous` | Signed session tokens |
+| `jinja2` | Template support |
+| `slowapi` | API rate limiting |
+| `pydantic` | Request and response validation |
+
+All dependencies are installed inside the Docker image from `requirements.txt`.
+
+---
+
+## External Services
+
+Inference runs fully inside the Docker container. There are no runtime dependencies on:
 
 - Cloud inference APIs
-- Third-party AI APIs
+- Third-party AI services
 - Hosted databases
 - External model-serving services
 
-The ROCm PyTorch base image is pulled from Docker Hub when the Docker image is built.
+The ROCm PyTorch base image is pulled from Docker Hub during the build step.
 
-Dataset
+---
 
-The project uses the following publicly available PCB soldering-defect dataset:
+## Troubleshooting
 
-SolDef_AI: An Open Source PCB Dataset for Mask R-CNN Defect Detection in Soldering Processes of Electronic Components
-
-Authors:
-
-- Gianmauro Fontana
-- Maurizio Calabrese
-- Leonardo Agnusdei
-- Gabriele Papadia
-- Antonio Del Prete
-
-DOI:
-
-https://doi.org/10.3390/jmmp8030117
-
-See the original publication for dataset details and licensing information.
-
-Troubleshooting
-
-ROCm cannot see the GPU
+**ROCm cannot see the GPU**
 
 First verify the host:
 
+```bash
 rocm-smi
+```
 
-If this fails, resolve the host ROCm installation before troubleshooting Docker.
+If this fails, resolve the host ROCm installation before troubleshooting Docker. If the host can see the GPU but the container cannot, confirm the container is started with `/dev/kfd`, `/dev/dri`, and the `video` and `render` groups.
 
-If the host can see the GPU but the container cannot, verify that the container is started with:
+---
 
-/dev/kfd
-/dev/dri
+**Application refuses to start in production**
 
-and the required "video" and "render" groups.
+Ensure `.env` contains all required production variables:
 
-Application refuses to start in production
-
-Check that ".env" contains:
-
+```env
 ENV=production
 SESSION_SECRET=...
 OPERATORS_JSON=...
+```
 
-"SESSION_SECRET" and "OPERATORS_JSON" are required in production.
+---
 
-Session cookie is not working
+**Session cookie is not working**
 
-Production cookies are marked "Secure", so the browser expects the application to be accessed over HTTPS in a production deployment.
+Production cookies are marked `Secure`, so the browser requires HTTPS. For local HTTP development, run without `ENV=production`.
 
-For local HTTP development, run the application without "ENV=production".
+---
 
-License
+## Dataset
+
+The models were trained on the following publicly available dataset:
+
+**SolDef_AI: An Open Source PCB Dataset for Mask R-CNN Defect Detection in Soldering Processes of Electronic Components**
+
+*Gianmauro Fontana, Maurizio Calabrese, Leonardo Agnusdei, Gabriele Papadia, Antonio Del Prete*
+
+DOI: [https://doi.org/10.3390/jmmp8030117](https://doi.org/10.3390/jmmp8030117)
+
+See the original publication for dataset details and licensing.
+
+---
+
+## License
 
 See the repository's configured GitHub license for the terms under which this project is distributed.
