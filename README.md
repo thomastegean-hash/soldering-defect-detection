@@ -1,112 +1,275 @@
-# SMD vision
+SMD Vision
 
-A web application that runs real-time soldering defect detection using a YOLO model, served via a FastAPI backend. Built to run on **AMD GPUs** using ROCm — no NVIDIA required.
+Real-time PCB soldering defect detection using YOLO, FastAPI, and AMD GPUs with ROCm.
 
-Users upload or stream PCB images through a browser UI, and the app returns annotated results with bounding boxes around detected defects.
+SMD Vision is a browser-based inspection application for detecting soldering defects on PCB images. It uses a two-stage YOLO inference pipeline to first determine the PCB view and then route the image to the appropriate specialized defect-detection model.
 
----
+The application runs inference locally through a FastAPI backend and is designed for AMD GPUs using the ROCm stack — no NVIDIA GPU is required.
 
-## What It Does
+Features
 
-- Accepts image uploads via a web interface
-- Runs inference using a YOLO model (Ultralytics) with AMD GPU acceleration via ROCm
-- Returns annotated images with detected soldering defects highlighted
-- Includes basic authentication (bcrypt-based) and rate limiting to protect the API
-- Serves a Jinja2-templated frontend from `static/`
+- Browser-based PCB image inspection
+- Two-stage YOLO inference pipeline
+  - Classifies the input as a "perspective" or "top" view
+  - Routes the image to the corresponding specialized detection model
+- Soldering defect detection with bounding boxes
+- Detection confidence scores and defect classes
+- Annotated image results
+- AMD GPU acceleration through ROCm
+- Docker-based deployment
+- Operator authentication with bcrypt password verification
+- Signed session cookies with configurable expiration
+- "Remember me" sessions
+- Login rate limiting
+- Protected application routes
+- Development and production configuration modes
+- Fully local inference with no cloud inference service required
+- Trained YOLO models included in the repository
 
----
+How It Works
 
-## AMD GPU (ROCm) Resource Usage
+SMD Vision uses a two-stage computer-vision pipeline.
 
-This project targets AMD GPUs via the [ROCm](https://rocm.docs.amd.com/) stack. The Docker image is built on:
+                    PCB Image
+                        │
+                        ▼
+              ┌──────────────────┐
+              │  View Classifier  │
+              │      YOLO         │
+              └────────┬─────────┘
+                       │
+              ┌────────┴─────────┐
+              │                  │
+        perspective              top
+              │                  │
+              ▼                  ▼
+    ┌─────────────────┐  ┌─────────────────┐
+    │ Perspective     │  │ Top-View        │
+    │ Detector        │  │ Detector        │
+    └────────┬────────┘  └────────┬────────┘
+             │                    │
+             └──────────┬─────────┘
+                        ▼
+               Defect detections
+                        │
+                        ▼
+              Class + confidence
+                 + bounding box
+                        │
+                        ▼
+                Annotated image
 
-```
+The view classifier selects the detector before defect inference is performed. This allows separate models to specialize in different PCB viewing conditions.
+
+Each detection contains:
+
+{
+  "class": "example_defect",
+  "confidence": 0.94,
+  "bbox": [x1, y1, x2, y2]
+}
+
+The detection pipeline also returns the classified PCB view.
+
+Application Architecture
+
+The application consists of a FastAPI backend, authentication layer, inference pipeline, and browser frontend.
+
+Browser
+   │
+   ├── Login
+   │      │
+   │      └── /api/auth/login
+   │             │
+   │             ├── bcrypt verification
+   │             ├── rate limiting
+   │             └── signed session cookie
+   │
+   └── Authenticated inspection UI
+              │
+              ▼
+         FastAPI routes
+              │
+              ▼
+        YOLO inference
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+ Perspective       Top-view
+ detector          detector
+       │             │
+       └──────┬──────┘
+              ▼
+       Detection results
+
+Main code path:
+
+app/main.py
+    ↓
+FastAPI routes
+    ↓
+Detection pipeline
+    ↓
+View classifier
+    ↓
+Perspective / top-view detector
+    ↓
+Detection results
+
+Models
+
+The trained YOLO models required by SMD Vision are included in the repository under:
+
+models/
+└── deploy/
+
+The application uses three models:
+
+Model| Purpose
+View classifier| Determines whether the PCB image is a perspective or top-down view
+Perspective detector| Detects soldering defects in perspective-view images
+Top-view detector| Detects soldering defects in top-down images
+
+The inference pipeline automatically selects the appropriate detector after classifying the input view.
+
+No model download or external model registry is required to run the application.
+
+The model weights are distributed with this repository. Check the repository license and the applicable model/dataset licensing terms before redistributing the weights separately.
+
+Authentication
+
+SMD Vision includes session-based operator authentication for the inspection console.
+
+- Passwords are verified using bcrypt.
+- Login attempts are limited to 10 attempts per minute.
+- Successful authentication creates a signed session cookie using "itsdangerous".
+- Normal sessions last 8 hours.
+- "Remember me" sessions last 14 days.
+- Session cookies use "HttpOnly" and "SameSite=Lax".
+- Production cookies use the "Secure" flag.
+- Protected routes require an authenticated operator.
+- Operator IDs, names, and roles are available to authenticated endpoints.
+- Failed and successful authentication attempts are logged without logging passwords.
+- Unknown operator IDs perform a dummy bcrypt verification to reduce timing differences during authentication.
+
+Production configuration
+
+Production deployments require:
+
+ENV=production
+SESSION_SECRET=<long-random-secret>
+OPERATORS_JSON=<operator-configuration>
+
+Generate a session secret with:
+
+python3 -c "import secrets; print(secrets.token_hex(32))"
+
+"OPERATORS_JSON" contains the configured operator accounts and bcrypt password hashes.
+
+In development mode, the application can use a built-in fixture operator when "OPERATORS_JSON" is not provided.
+
+«Do not use the development fixture credentials in production.»
+
+AMD GPU / ROCm
+
+SMD Vision is designed to run inference on AMD GPUs using ROCm.
+
+The Docker image is based on:
+
 rocm/pytorch:rocm7.1_ubuntu24.04_py3.12_pytorch_release_2.8.0
-```
 
-At runtime, the container accesses AMD GPU hardware through two device nodes:
+The container receives AMD GPU access through two device nodes:
 
-| Device | Purpose |
-|---|---|
-| `/dev/kfd` | AMD Kernel Fusion Driver — GPU compute access |
-| `/dev/dri` | Direct Rendering Infrastructure — GPU rendering/display |
+Device| Purpose
+"/dev/kfd"| AMD Kernel Fusion Driver / GPU compute
+"/dev/dri"| Direct Rendering Infrastructure
 
-The `run.sh` script also adds the container to the `video` and `render` groups, which are required for GPU access on most Linux systems.
+The container is also started with the "video" and "render" groups, which are commonly required for AMD GPU access.
 
-**Minimum requirements:**
-- An AMD GPU supported by ROCm 7.1 (e.g., RX 6000/7000 series, RDNA2+, or supported data center GPUs)
+Requirements
+
+- Linux host
+- Docker
+- AMD GPU supported by the installed ROCm version
 - ROCm drivers installed on the host
-- Linux host (ROCm does not support Windows or macOS natively)
+- Docker device passthrough support
 
-To verify your AMD GPU is visible to ROCm on the host before running:
-```bash
+Verify that the host can see the GPU before starting the application:
+
 rocm-smi
-```
 
----
+If the host cannot see the GPU through ROCm, the Docker container will not be able to use it either.
 
-## Project Structure
+Project Structure
 
-```
 .
-├── app/                  # FastAPI application (main entry point: app/main.py)
+├── app/
+│   ├── main.py             # FastAPI application entry point
+│   ├── auth.py             # Operator authentication and sessions
+│   ├── routes.py           # Application/API routes
+│   ├── models.py           # YOLO model loading
+│   └── templates/
+│       └── login.html      # Login page
+│
 ├── models/
-│   └── deploy/           # Trained YOLO model weights (.pt files go here)
-├── static/               # Frontend assets (CSS, JS, HTML templates)
-├── Dockerfile            # ROCm-based Docker image definition
-├── build.sh              # Builds the Docker image
-├── run.sh                # Runs the container with AMD GPU passthrough
-└── requirements.txt      # Python dependencies
-```
+│   └── deploy/             # Included trained YOLO weights
+│
+├── static/                 # Frontend assets and inspection UI
+│
+├── Dockerfile              # ROCm-based container image
+├── build.sh                # Docker image build script
+├── run.sh                  # Container startup script
+└── requirements.txt        # Python dependencies
 
-**Main code path:** `app/main.py` → FastAPI routes → YOLO inference via `ultralytics` → annotated image response.
+Setup
 
----
+Prerequisites
 
-## Setup
+You need:
 
-### Prerequisites
+- Docker
+- Linux host
+- AMD GPU with compatible ROCm support
+- ROCm drivers installed on the host
 
-- Docker (with support for `--device` passthrough)
-- AMD GPU with ROCm 7.1 compatible drivers installed on the host
-- A trained YOLO model weights file (`.pt`) placed in `models/deploy/`
-- A `.env` file in the project root (see below)
+No model download is required. The trained YOLO weights are already included in "models/deploy/".
 
-### 1. Create a `.env` file
+1. Configure the session secret
 
-```env
-SECRET_KEY=your-secret-key-here
-```
+Create a ".env" file in the project root:
 
-> The app uses `itsdangerous` for session signing. Set `SECRET_KEY` to a long random string.
+ENV=production
+SESSION_SECRET=your-generated-secret
+OPERATORS_JSON=...
 
-### 2. Place your model weights
+Generate a secure session secret:
 
-Copy your trained YOLO `.pt` file into `models/deploy/`:
+python3 -c "import secrets; print(secrets.token_hex(32))"
 
-```bash
-cp your_model.pt models/deploy/
-```
+For development, "ENV" can be omitted. The application provides a development configuration when production-only environment variables are not supplied.
 
-### 3. Build the Docker image
+2. Build the Docker image
 
-```bash
+Run:
+
 ./build.sh
-```
 
-This runs `docker build -t yolo-app .` using the ROCm PyTorch base image.
+This builds the application image using the ROCm PyTorch base image.
 
-### 4. Run the container
+3. Start the application
 
-```bash
+Run:
+
 ./run.sh
-```
 
-This starts the app at **http://localhost:8000** with AMD GPU access enabled.
+The application will be available at:
 
-The full `run.sh` command for reference:
+http://localhost:8000
 
-```bash
+The container is configured for AMD GPU passthrough.
+
+The underlying Docker command is:
+
 docker run --rm -it \
   --env-file .env \
   --device=/dev/kfd \
@@ -119,46 +282,126 @@ docker run --rm -it \
   -v "$(pwd):/app" \
   -v "$HOME/data:/data" \
   yolo-app
-```
 
----
+API
 
-## Dependencies
+The application exposes authentication and inspection endpoints through FastAPI.
 
-| Package | Purpose |
-|---|---|
-| `ultralytics` | YOLO model loading and inference |
-| `opencv-python` | Image preprocessing and annotation |
-| `fastapi` | Web API framework |
-| `uvicorn` | ASGI server |
-| `python-multipart` | File upload handling |
-| `passlib[bcrypt]` + `bcrypt` | Password hashing for authentication |
-| `itsdangerous` | Secure session/token signing |
-| `jinja2` | HTML template rendering |
-| `slowapi` | Rate limiting for API endpoints |
+Authentication
 
-All Python dependencies are installed inside the Docker container from `requirements.txt`.
+GET  /login
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/auth/me
 
----
+Login
 
-## External Services
+POST /api/auth/login
+Content-Type: application/json
 
-This project has **no external service dependencies** — inference runs fully locally inside the Docker container. There are no API calls to third-party services, cloud platforms, or external model registries at runtime.
+Example:
 
-The base Docker image (`rocm/pytorch`) is pulled from Docker Hub on first build.
+{
+  "operator_id": "OP-1001",
+  "password": "password",
+  "remember": false
+}
 
----
+A successful login creates the signed session cookie and returns the authenticated operator:
 
-dataset source: https://doi.org/10.3390/jmmp8030117
+{
+  "ok": true,
+  "operator": {
+    "operator_id": "OP-1001",
+    "name": "Operator One",
+    "role": "operator"
+  }
+}
+
+Authentication-protected endpoints require the session cookie created during login.
+
+Dependencies
+
+Package| Purpose
+"ultralytics"| YOLO model loading and inference
+"opencv-python"| Image processing and annotation
+"fastapi"| Web API framework
+"uvicorn"| ASGI server
+"python-multipart"| File upload handling
+"passlib[bcrypt]" / "bcrypt"| Password hashing and verification
+"itsdangerous"| Signed session tokens
+"jinja2"| Template support
+"slowapi"| API rate limiting
+"pydantic"| Request and response validation
+
+All Python dependencies are installed inside the Docker image from "requirements.txt".
+
+External Services
+
+Inference runs locally inside the Docker container.
+
+There are no runtime dependencies on:
+
+- Cloud inference APIs
+- Third-party AI APIs
+- Hosted databases
+- External model-serving services
+
+The ROCm PyTorch base image is pulled from Docker Hub when the Docker image is built.
+
+Dataset
+
+The project uses the following publicly available PCB soldering-defect dataset:
+
 SolDef_AI: An Open Source PCB Dataset for Mask R-CNN Defect Detection in Soldering Processes of Electronic Components
-Authors: Gianmauro Fontana, Maurizio Calabrese, Leonardo Agnusdei, Gabriele Papadia, Antonio Del Prete
 
-## Checklist
+Authors:
 
-| Item | Status |
-|---|---|
-| README explains what was built | ✅ |
-| README explains AMD resource usage | ✅ |
-| Setup instructions are complete | ✅ |
-| Main code path is easy to find | ✅ `app/main.py` |
-| External services are documented | ✅ None required |
+- Gianmauro Fontana
+- Maurizio Calabrese
+- Leonardo Agnusdei
+- Gabriele Papadia
+- Antonio Del Prete
+
+DOI:
+
+https://doi.org/10.3390/jmmp8030117
+
+See the original publication for dataset details and licensing information.
+
+Troubleshooting
+
+ROCm cannot see the GPU
+
+First verify the host:
+
+rocm-smi
+
+If this fails, resolve the host ROCm installation before troubleshooting Docker.
+
+If the host can see the GPU but the container cannot, verify that the container is started with:
+
+/dev/kfd
+/dev/dri
+
+and the required "video" and "render" groups.
+
+Application refuses to start in production
+
+Check that ".env" contains:
+
+ENV=production
+SESSION_SECRET=...
+OPERATORS_JSON=...
+
+"SESSION_SECRET" and "OPERATORS_JSON" are required in production.
+
+Session cookie is not working
+
+Production cookies are marked "Secure", so the browser expects the application to be accessed over HTTPS in a production deployment.
+
+For local HTTP development, run the application without "ENV=production".
+
+License
+
+See the repository's configured GitHub license for the terms under which this project is distributed.
